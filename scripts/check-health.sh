@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 for service in db web worker; do
-    container="$(docker compose ps -q "$service")"
+    container="$(./scripts/compose.sh ps -q "$service")"
     [[ -n "$container" ]] || { echo "$service: missing"; exit 1; }
     state="$(docker inspect --format '{{.State.Health.Status}}' "$container")"
     [[ "$state" == healthy ]] || { echo "$service: $state"; exit 1; }

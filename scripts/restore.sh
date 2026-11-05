@@ -11,10 +11,10 @@ backup_root="${BACKUP_DIR:-$PWD/backups}"
 mkdir -p "$backup_root"
 exec 9>"$backup_root/.lock"
 flock -n 9 || { echo 'A backup or restore is already running'; exit 1; }
-docker compose stop web worker
-docker compose exec -T db pg_restore -U promo -d promo --clean --if-exists --no-owner --exit-on-error < "$restore_source/database.dump"
-docker compose run --rm --no-deps -T --entrypoint python web -c 'from pathlib import Path; import shutil; root=Path("/data"); [(shutil.rmtree(p) if p.is_dir() else p.unlink()) for p in root.iterdir()]'
-docker compose run --rm --no-deps -T --entrypoint tar web -C /data -xzf - < "$restore_source/files.tar.gz"
-docker compose run --rm migrate
-docker compose up -d web worker
+./scripts/compose.sh stop web worker
+./scripts/compose.sh exec -T db pg_restore -U promo -d promo --clean --if-exists --no-owner --exit-on-error < "$restore_source/database.dump"
+./scripts/compose.sh run --rm --no-deps -T --entrypoint python web -c 'from pathlib import Path; import shutil; root=Path("/data"); [(shutil.rmtree(p) if p.is_dir() else p.unlink()) for p in root.iterdir()]'
+./scripts/compose.sh run --rm --no-deps -T --entrypoint tar web -C /data -xzf - < "$restore_source/files.tar.gz"
+./scripts/compose.sh run --rm migrate
+./scripts/compose.sh up -d web worker
 echo 'Restore completed. Verify login, product images and saved PDFs before reopening access.'

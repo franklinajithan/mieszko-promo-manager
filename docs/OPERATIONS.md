@@ -8,6 +8,30 @@ Confirm the server hostname/IP, SSH account and key access, intended checkout di
 
 Use Ubuntu with Docker Engine and Compose v2 supporting `service_completed_successfully` and `--wait`. A practical starting allocation is 2 CPU cores / 4 GB RAM plus storage sized for original images and backups; benchmark the actual server before a large first import. No paid service is required.
 
+## Guided new installation
+
+For a new checkout with no existing Promo Manager containers, volumes or configuration, the standard-library helper checks Docker/Compose access, available disk space and an unused loopback port. It refuses an existing installation or retained data volumes and never edits the reverse proxy or another application. Run it from the dedicated checkout on Ubuntu:
+
+```bash
+python3 scripts/deploy.py check --port 8085
+python3 scripts/deploy.py configure --origin https://promo.your-domain.co.uk --port 8085
+python3 scripts/deploy.py install --admin yourname
+```
+
+Replace the example origin with the agreed hostname before configuring. Configuration creates `.env` with mode 600, two different generated passwords and secure HTTPS cookies. Passwords are never printed. Existing files and symlinks are refused rather than overwritten. Install prompts privately for the administrator password and starts only the explicitly named Promo Manager Compose project. Shell variables from another app cannot override its database/origin configuration.
+
+For initial private testing without a domain, configure `--origin http://127.0.0.1:8085` instead, then forward the server's loopback port from your office computer:
+
+```bash
+ssh -N -L 8085:127.0.0.1:8085 backend@192.168.128.139
+```
+
+Open `http://127.0.0.1:8085` on that computer while the tunnel is connected. This is a private test path: the helper rejects plain HTTP origins on public or LAN addresses. Before wider staff access, configure the agreed HTTPS hostname/origin and enable secure cookies. No SSH password belongs in the repository or command arguments.
+
+The shared `scripts/compose.sh` wrapper also scopes backups, restores and health checks to this project and its private environment file, ignoring conflicting shell configuration from other applications.
+
+If installation is interrupted after containers are created, do not delete configuration or volumes and do not rerun new-install initialisation. Inspect `./scripts/compose.sh ps` and the app logs; resume the documented startup/admin command with the preserved configuration. Existing installations must use the backup/upgrade procedure below.
+
 ## New installation
 
 ```bash
@@ -20,9 +44,9 @@ python3 -c 'import secrets; print(secrets.token_hex(32))'
 # Generate a second different secret for PROMO_APP_PASSWORD.
 # Set ALLOWED_ORIGIN to the exact HTTPS origin, no trailing slash.
 # Choose an unused PROMO_PORT. COOKIE_SECURE must be true with HTTPS.
-docker compose config --quiet
-docker compose up -d --build --wait --wait-timeout 180
-docker compose exec web python -m app.cli create-admin --username yourname
+./scripts/compose.sh config --quiet
+./scripts/compose.sh up -d --build --wait --wait-timeout 180
+./scripts/compose.sh exec web python -m app.cli create-admin --username yourname
 ./scripts/check-health.sh
 ```
 
@@ -54,26 +78,26 @@ PROMO_RESTORE_CONFIRMED=RESTORE_MIESZKO_PROMO ./scripts/restore.sh /absolute/bac
 ./scripts/check-health.sh
 ```
 
-Do not run `docker compose down -v` on production: it deletes this application's volumes. Do not restore archives from untrusted sources.
+Do not run `./scripts/compose.sh down -v` on production: it deletes this application's volumes. Do not restore archives from untrusted sources.
 
 ## Upgrades
 
 1. Review the PR, migration notes and CI evidence.
 2. Run `./scripts/backup.sh`; confirm the archive and adequate free space.
 3. `git pull --ff-only` from verified main.
-4. `docker compose stop web worker` then `docker compose build`.
-5. `docker compose run --rm migrate` and verify success before restarting writers.
-6. `docker compose up -d --wait --wait-timeout 180`.
+4. `./scripts/compose.sh stop web worker` then `./scripts/compose.sh build`.
+5. `./scripts/compose.sh run --rm migrate` and verify success before restarting writers.
+6. `./scripts/compose.sh up -d --wait --wait-timeout 180`.
 7. `./scripts/check-health.sh`, then verify sign-in, search, image retrieval and a saved PDF in a real browser.
 
-For an existing prototype database volume, the PostgreSQL init script will not run automatically. Before upgrading, create the runtime role and default privileges with `docker compose exec -T db sh /docker-entrypoint-initdb.d/10-promo-app.sh`, then grant it access to pre-existing tables and sequences using the database owner. Do not recreate a volume to trigger initialisation.
+For an existing prototype database volume, the PostgreSQL init script will not run automatically. Before upgrading, create the runtime role and default privileges with `./scripts/compose.sh exec -T db sh /docker-entrypoint-initdb.d/10-promo-app.sh`, then grant it access to pre-existing tables and sequences using the database owner. Do not recreate a volume to trigger initialisation.
 
 Initial migrations preserve the prototype's products, images and promotions. Duplicate nonempty internal codes deliberately stop the upgrade for manual review, with no automatic deletion. PostgreSQL DDL migrations are transactional. SQLite exists for development tests only. Destructive downgrades are disabled: restore the verified matching database/files backup and source commit for rollback.
 
 ## Recovery and monitoring
 
 - `/health/live` checks the process; `/health/ready` checks the database and migration table. The worker health check monitors progress/idle heartbeat.
-- `docker compose logs --tail=100 web worker` contains structured request/job events, request IDs and job IDs. No passwords or request bodies are logged. Log rotation is enabled.
+- `./scripts/compose.sh logs --tail=100 web worker` contains structured request/job events, request IDs and job IDs. No passwords or request bodies are logged. Log rotation is enabled.
 - The dashboard and job pages display failed/partial jobs. A restarted worker marks interrupted jobs failed; Retry safely is explicit. One PostgreSQL advisory lock prevents multiple workers processing the same queue. Do not run the test worker against production.
 - Persistent files are retained for reliable reprints and recovery. Monitor disk capacity and failed backups; set alerting using existing server monitoring. No paid error-monitoring service is introduced.
 - Staff can edit products/images/campaigns and operate their print jobs. Administrators manage imports, product archive/restore, users, settings and audit. No permanent product-delete endpoint is exposed. Disabling or resetting a user revokes their sessions.
