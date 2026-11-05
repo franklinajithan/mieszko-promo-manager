@@ -18,7 +18,7 @@ pdfmetrics.registerFont(TTFont("Promo", str(FONT_DIR / "DejaVuSans.ttf")))
 pdfmetrics.registerFont(TTFont("PromoBold", str(FONT_DIR / "DejaVuSans-Bold.ttf")))
 
 
-def fit_text(c, text, x, y, width, size, max_lines=1, align="left"):
+def fit_text(c, text, x, y, width, size, max_lines=1, align="left", max_height=None):
     words = text.split()
     for font_size in range(size, 7, -1):
         lines, line = [], ""
@@ -41,7 +41,9 @@ def fit_text(c, text, x, y, width, size, max_lines=1, align="left"):
                     line = candidate
         if line:
             lines.append(line)
-        if len(lines) <= max_lines:
+        if len(lines) <= max_lines and (
+            max_height is None or (len(lines) - 1) * font_size * 1.25 <= max_height
+        ):
             break
     if len(lines) > max_lines:
         raise ValueError("Description cannot fit safely; shorten text or choose landscape")
@@ -145,12 +147,12 @@ def render_pdf(rows, config=None):
         barcode = p["barcode"]
         kind = "EAN13" if len(barcode) == 13 and valid_gtin(barcode) else "Code128"
         drawing = createBarcodeDrawing(
-            kind, value=barcode, barHeight=39, humanReadable=True, fontName="Promo", fontSize=9
+            kind, barWidth=0.94, value=barcode, barHeight=39, humanReadable=True, fontName="Promo", fontSize=9
         )
         max_w = w * 0.30
         factor = min(1, max_w / drawing.width)
         # Extremely long codes cannot be scannable inside this reserved area.
-        if factor < 0.62:
+        if factor < 0.8:
             raise ValueError("Barcode too long for a scannable A4 label; select a shorter product barcode")
         c.saveState()
         c.translate(33, 53)
@@ -158,7 +160,7 @@ def render_pdf(rows, config=None):
         drawing.drawOn(c, 0, 0)
         c.restoreState()
         c.setFillColor(HexColor("#151B26"))
-        fit_text(c, p["name"], w * 0.37, 124, w * 0.63 - 34, 22, 4, "right")
+        fit_text(c, p["name"], w * 0.37, 124, w * 0.63 - 34, 22, 6, "right", max_height=58)
         fit_text(
             c,
             " / ".join(v for v in (p.get("weight"), p.get("brand")) if v),
