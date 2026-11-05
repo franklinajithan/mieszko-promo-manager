@@ -7,3 +7,12 @@ data/
 .venv/
 *.xlsx
 *.zip
+
+frontend/node_modules/
+frontend/playwright-report/
+frontend/test-results/
+frontend/*.tsbuildinfo
+.ruff_cache/
+.mypy_cache/
+static/assets/
+backups/

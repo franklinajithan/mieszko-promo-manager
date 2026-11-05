@@ -1,30 +1,84 @@
+name: mieszko-promo
+x-app: &app
+  build: .
+  image: mieszko-promo:local
+  restart: unless-stopped
+  user: '10001:10001'
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:size=512m,mode=1777
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  environment: &environment
+    DATABASE_URL: postgresql+psycopg://promo_app:${PROMO_APP_PASSWORD:?Set a unique 64-character hex PROMO_APP_PASSWORD}@db:5432/promo
+    DATA_DIR: /data
+    COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:?Set exact HTTPS origin}
+  volumes:
+    - image_data:/data
+  networks: [backend]
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '3'
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: promo
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       POSTGRES_DB: promo
+      PROMO_APP_PASSWORD: ${PROMO_APP_PASSWORD:?Set PROMO_APP_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./deploy/init-db.sh:/docker-entrypoint-initdb.d/10-promo-app.sh:ro
+    networks: [backend]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U promo -d promo"]
+      test: ['CMD-SHELL', 'pg_isready -U promo -d promo']
       interval: 5s
-      retries: 10
-  web:
-    build: .
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8085:8000"
+      timeout: 5s
+      retries: 20
+    logging:
+      driver: json-file
+      options: {max-size: '10m', max-file: '3'}
+  migrate:
+    <<: *app
+    restart: 'no'
+    command: ['alembic', 'upgrade', 'head']
     environment:
+      <<: *environment
       DATABASE_URL: postgresql+psycopg://promo:${POSTGRES_PASSWORD}@db:5432/promo
-      DATA_DIR: /data
-    volumes:
-      - image_data:/data
     depends_on:
-      db:
-        condition: service_healthy
+      db: {condition: service_healthy}
+  web:
+    <<: *app
+    ports: ['127.0.0.1:${PROMO_PORT:-8085}:8000']
+    command: ['uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--no-proxy-headers', '--no-access-log']
+    networks: [backend, ingress]
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready',timeout=4)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  worker:
+    <<: *app
+    command: ['python', '-m', 'app.worker']
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import os,time; assert time.time()-os.path.getmtime('/data/worker-heartbeat') < 120"]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+    stop_grace_period: 2m
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+networks:
+  backend: {internal: true}
+  ingress: {}
 volumes:
   postgres_data:
   image_data:
