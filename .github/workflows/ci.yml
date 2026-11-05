@@ -35,7 +35,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core poppler-utils
       - run: pip install -r requirements-dev.txt
       - run: ruff check app migrations tests scripts && ruff format --check app migrations tests scripts
-      - run: mypy app
+      - run: mypy app scripts/deploy.py
       - run: python -m alembic upgrade head && python -m alembic upgrade head
       - id: backend_tests
         run: python -m pytest -q --junitxml=/tmp/promo-tests.xml
@@ -86,21 +86,31 @@ jobs:
       COOKIE_SECURE: 'false'
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose config --quiet
-      - run: docker compose up -d --build --wait --wait-timeout 180
+      - name: Prepare isolated CI configuration
+        run: |
+          python3 - <<'PYCODE'
+          import os
+          names=('POSTGRES_PASSWORD','PROMO_APP_PASSWORD','ALLOWED_ORIGIN','COOKIE_SECURE')
+          fd=os.open('.env',os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+          with os.fdopen(fd,'w') as f:
+              f.write(''.join(name+'='+os.environ[name]+'\n' for name in names)+'PROMO_PORT=8085\n')
+          PYCODE
+      - run: python3 scripts/deploy.py check --port 8085
+      - run: ./scripts/compose.sh config --quiet
+      - run: ./scripts/compose.sh up -d --build --wait --wait-timeout 180
       - run: curl --fail http://127.0.0.1:8085/health/ready && curl --fail http://127.0.0.1:8085/
       - run: ./scripts/check-health.sh
       - name: Backup and restore isolated Compose stack
         run: |
-          docker compose exec -T -e PROMO_TEST_MODE=1 web python - create < scripts/restore_probe.py
+          ./scripts/compose.sh exec -T -e PROMO_TEST_MODE=1 web python - create < scripts/restore_probe.py
           ./scripts/backup.sh
           archive=$(find backups -mindepth 1 -maxdepth 1 -type d | head -1)
-          docker compose exec -T -e PROMO_TEST_MODE=1 web python - mutate < scripts/restore_probe.py
+          ./scripts/compose.sh exec -T -e PROMO_TEST_MODE=1 web python - mutate < scripts/restore_probe.py
           PROMO_RESTORE_CONFIRMED=RESTORE_MIESZKO_PROMO ./scripts/restore.sh "$archive"
-          docker compose up -d --wait --wait-timeout 120
+          ./scripts/compose.sh up -d --wait --wait-timeout 120
           ./scripts/check-health.sh
-          docker compose exec -T -e PROMO_TEST_MODE=1 web python - verify < scripts/restore_probe.py
-      - run: docker compose logs --no-color
+          ./scripts/compose.sh exec -T -e PROMO_TEST_MODE=1 web python - verify < scripts/restore_probe.py
+      - run: ./scripts/compose.sh logs --no-color
         if: failure()
-      - run: docker compose down -v
+      - run: ./scripts/compose.sh down -v
         if: always()

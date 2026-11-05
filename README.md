@@ -33,7 +33,7 @@ When using the Vite dev server, set `ALLOWED_ORIGIN=http://127.0.0.1:5173` and o
 ```bash
 ruff check app migrations tests scripts
 ruff format --check app migrations tests scripts
-mypy app
+mypy app scripts/deploy.py
 python -m pytest -q
 npm run build --prefix frontend
 ```
