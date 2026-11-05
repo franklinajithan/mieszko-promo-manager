@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: promo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: promo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U promo -d promo"]
+      interval: 5s
+      retries: 10
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8085:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://promo:${POSTGRES_PASSWORD}@db:5432/promo
+      DATA_DIR: /data
+    volumes:
+      - image_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  postgres_data:
+  image_data:
