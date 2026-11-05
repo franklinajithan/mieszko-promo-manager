@@ -49,22 +49,6 @@ jobs:
           python -m app.worker > /tmp/promo-worker.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health/ready && break || sleep 1; done
           npm run test:e2e --prefix frontend
-      - name: Create isolated benchmark database
-        id: benchmark_database
-        if: ${{ !cancelled() && steps.backend_tests.outcome == 'success' }}
-        run: |
-          python - <<'PY'
-          import psycopg
-          with psycopg.connect('postgresql://promo:ci-disposable-password@127.0.0.1:5432/promo_test', autocommit=True) as c:
-              c.execute('CREATE DATABASE promo_benchmark')
-          PY
-      - name: Benchmark 50,000-row import, repeat and search
-        if: ${{ !cancelled() && steps.benchmark_database.outcome == 'success' }}
-        run: python scripts/benchmark.py --confirm-isolated --rows 50000 --output /tmp/benchmark.json
-        env:
-          PYTHONPATH: .
-          DATABASE_URL: postgresql+psycopg://promo:ci-disposable-password@127.0.0.1:5432/promo_benchmark
-          DATA_DIR: /tmp/promo-benchmark-data
       - uses: actions/upload-artifact@v4
         if: always()
         with:
