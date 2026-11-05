@@ -211,3 +211,14 @@ def test_cancel_queued_and_retry(admin_client, product):
     with SessionLocal() as s:
         stored = s.scalar(select(Job).where(Job.id == j["id"]))
         assert stored.result["pages"] == 1
+
+
+def test_login_throttle_does_not_lock_unrelated_staff(client):
+    for _ in range(10):
+        client.post("/api/auth/login", json={"username": "missing", "password": "bad"})
+    assert (
+        client.post(
+            "/api/auth/login", json={"username": "admin", "password": "test-only-secret-123"}
+        ).status_code
+        == 200
+    )

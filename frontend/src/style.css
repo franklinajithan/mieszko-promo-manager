@@ -1024,3 +1024,14 @@ footer {
     display: none;
   }
 }
+
+.pdf-preview canvas {
+  width: 100%;
+  height: auto;
+  box-shadow: 0 2px 12px #2631401a;
+  background: white;
+}
+.pdf-preview .button {
+  margin-top: 14px;
+  font-size: 11px;
+}

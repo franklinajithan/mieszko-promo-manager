@@ -14,6 +14,7 @@ test("staff signs in, maintains a product, creates a campaign and prints a PDF",
   await expect(
     page.getByRole("heading", { name: "Dashboard", exact: true }),
   ).toBeVisible();
+  await page.screenshot({ path: "test-results/dashboard.png", fullPage: true });
   await page.getByRole("button", { name: "Products", exact: true }).click();
   await page.getByRole("button", { name: "Add product", exact: true }).click();
   const dialog = page.getByRole("dialog");
@@ -50,6 +51,11 @@ test("staff signs in, maintains a product, creates a campaign and prints a PDF",
     .first()
     .click();
   await expect(page.getByTitle("A4 label PDF preview")).toBeVisible();
+  await expect(page.getByTestId("label-preview-canvas")).toBeVisible();
+  await page.screenshot({
+    path: "test-results/label-designer.png",
+    fullPage: true,
+  });
   await page
     .getByLabel("Orientation", { exact: true })
     .selectOption("landscape");

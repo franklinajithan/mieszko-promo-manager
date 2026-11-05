@@ -124,15 +124,21 @@ def ready(s=Depends(db)):
 
 @app.post("/api/auth/login")
 def login(data: Credentials, request: Request, response: Response, s=Depends(db)):
-    identity = digest(request.client.host if request.client else "unknown")
+    source = request.client.host if request.client else "unknown"
+    identity = digest(source + ":" + data.username.lower())
+    source_identity = digest(source)
     cutoff = now() - timedelta(minutes=15)
     s.execute(delete(LoginAttempt).where(LoginAttempt.created_at < cutoff))
     attempts = s.scalar(
         select(func.count()).select_from(LoginAttempt).where(LoginAttempt.identity == identity)
     )
-    if attempts >= 10:
+    source_attempts = s.scalar(
+        select(func.count()).select_from(LoginAttempt).where(LoginAttempt.identity == source_identity)
+    )
+    if attempts >= 10 or source_attempts >= 100:
         raise HTTPException(429, "Too many sign-in attempts. Try again in 15 minutes.")
     s.add(LoginAttempt(identity=identity))
+    s.add(LoginAttempt(identity=source_identity))
     s.commit()
     user = s.scalar(select(User).where(User.username == data.username.lower()))
     valid = verify(user.password_hash if user else None, data.password)

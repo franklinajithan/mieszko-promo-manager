@@ -1,5 +1,6 @@
 import hashlib
 import io
+import secrets
 import warnings
 from pathlib import Path
 
@@ -14,7 +15,7 @@ Image.MAX_IMAGE_PIXELS = 24_000_000
 
 
 def atomic_write(path, content):
-    temp = path.with_suffix(path.suffix + ".tmp")
+    temp = path.with_suffix(path.suffix + "." + secrets.token_hex(8) + ".tmp")
     temp.write_bytes(content)
     temp.replace(path)
 

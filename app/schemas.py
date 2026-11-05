@@ -78,6 +78,7 @@ class UserInput(Credentials):
 
 
 class UserUpdate(Strict):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
     active: bool
     role: Literal["admin", "staff"]
     password: str | None = Field(default=None, min_length=12, max_length=128)

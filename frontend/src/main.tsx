@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
   LayoutDashboard,
@@ -22,6 +22,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import "./style.css";
+import type { PDFDocumentLoadingTask } from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 type User = {
   id: number;
@@ -1809,6 +1811,7 @@ function Designer({
         <label>
           Orientation
           <select
+            aria-label="Orientation"
             value={config.orientation}
             onChange={(e) =>
               setConfig({
@@ -1935,7 +1938,7 @@ function Designer({
           <Badge value={config.orientation} />
         </div>
         {pdf ? (
-          <iframe title="A4 label PDF preview" src={pdf} />
+          <PdfPreview url={pdf} />
         ) : (
           <Empty text="Select a label to preview." />
         )}
@@ -1944,6 +1947,68 @@ function Designer({
           Missing product images are clearly marked.
         </p>
       </section>
+    </div>
+  );
+}
+function PdfPreview({ url }: { url: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [error, setError] = useState("");
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    let task: PDFDocumentLoadingTask | undefined;
+    let rendering: { cancel: () => void } | undefined;
+    setReady(false);
+    setError("");
+    const load = async () => {
+      const { getDocument, GlobalWorkerOptions } = await import("pdfjs-dist");
+      if (cancelled) return;
+      GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+      task = getDocument({ url });
+      const document = await task.promise;
+      const page = await document.getPage(1);
+      if (cancelled || !canvasRef.current) return;
+      const canvas = canvasRef.current;
+      const natural = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: 1200 / natural.width });
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const render = page.render({ canvas, viewport });
+      rendering = render;
+      await render.promise;
+      if (!cancelled) setReady(true);
+    };
+    void load().catch((e) => {
+      if (!cancelled)
+        setError(e instanceof Error ? e.message : "Preview unavailable");
+    });
+    return () => {
+      cancelled = true;
+      rendering?.cancel();
+      if (task) void task.destroy();
+    };
+  }, [url]);
+  return (
+    <div
+      title="A4 label PDF preview"
+      className="pdf-preview"
+      aria-busy={!ready}
+    >
+      {!ready && !error && <p className="muted">Rendering label…</p>}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <canvas
+        ref={canvasRef}
+        data-testid="label-preview-canvas"
+        aria-label="Rendered A4 product label"
+        style={{ display: ready ? "block" : "none" }}
+      />
+      <a href={url} target="_blank" rel="noreferrer" className="button">
+        Open preview PDF
+      </a>
     </div>
   );
 }

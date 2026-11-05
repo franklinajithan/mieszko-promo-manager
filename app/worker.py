@@ -63,7 +63,7 @@ def process_one():
             audit(s, job.owner_id, f"{job.kind}.{current.status}", job.id)
             s.commit()
     except Exception as exc:
-        log.exception("job_failed", extra={"job_id": job.id})
+        log.exception(json.dumps({"event": "job_failed", "job_id": job.id}))
         with SessionLocal() as s:
             current = s.get(Job, job.id)
             assert current is not None

@@ -108,3 +108,37 @@ def test_cached_lookup_formula_is_read_without_evaluation(admin_client):
     job = upload(admin_client, result.getvalue())
     assert job["result"]["valid"] == 1, job
     assert job["result"]["sample"][0]["code"] == "M001"
+
+
+def test_cancel_committed_batch_and_retry_without_duplicates(admin_client, monkeypatch):
+    from app import imports
+    from app.models import Job, SessionLocal
+
+    job = upload(
+        admin_client,
+        workbook([(f"M{i}", f"{10000000 + i}", "", "EACH", "", f"Product {i}") for i in range(501)]),
+    )
+    key = job["id"]
+    admin_client.post(f"/api/jobs/{key}/commit")
+    original = imports.progress
+
+    def cancel_after_batch(job_id, count, total=0, result=None):
+        if count == 250:
+            with SessionLocal() as s:
+                stored = s.get(Job, job_id)
+                stored.cancel_requested = True
+                s.commit()
+        return original(job_id, count, total, result)
+
+    monkeypatch.setattr(imports, "progress", cancel_after_batch)
+    process_one()
+    assert admin_client.get(f"/api/jobs/{key}").json()["status"] == "cancelled"
+    assert admin_client.get("/api/products").json()["total"] == 250
+    monkeypatch.setattr(imports, "progress", original)
+    admin_client.post(f"/api/jobs/{key}/retry")
+    process_one()
+    finished = admin_client.get(f"/api/jobs/{key}").json()
+    assert finished["status"] == "completed", finished
+    assert finished["result"]["updated"] == 250
+    assert finished["result"]["inserted"] == 251
+    assert admin_client.get("/api/products").json()["total"] == 501
