@@ -1,0 +1,99 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-disposable-password
+          POSTGRES_USER: promo
+          POSTGRES_DB: promo_test
+        ports: ['5432:5432']
+        options: --health-cmd='pg_isready -U promo -d promo_test' --health-interval=5s --health-timeout=5s --health-retries=15
+    env:
+      DATABASE_URL: postgresql+psycopg://promo:ci-disposable-password@127.0.0.1:5432/promo_test
+      DATA_DIR: /tmp/promo-test-data
+      COOKIE_SECURE: 'false'
+      ALLOWED_ORIGIN: http://127.0.0.1:8000
+      PROMO_TEST_MODE: '1'
+      E2E_USERNAME: browser-admin
+      E2E_PASSWORD: disposable-browser-test-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12', cache: pip}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core poppler-utils
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app migrations tests scripts && ruff format --check app migrations tests scripts
+      - run: mypy app
+      - run: python -m alembic upgrade head && python -m alembic upgrade head
+      - run: python -m pytest -q --junitxml=/tmp/promo-tests.xml
+      - run: npm ci --prefix frontend && npm run build --prefix frontend
+      - run: python scripts/seed_e2e.py
+        env: {PYTHONPATH: '.'}
+      - run: cd frontend && npx playwright install --with-deps chromium
+      - name: Browser end-to-end flow
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log > /tmp/promo-api.log 2>&1 &
+          python -m app.worker > /tmp/promo-worker.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health/ready && break || sleep 1; done
+          npm run test:e2e --prefix frontend
+      - name: Create isolated benchmark database
+        run: |
+          python - <<'PY'
+          import psycopg
+          with psycopg.connect('postgresql://promo:ci-disposable-password@127.0.0.1:5432/promo_test', autocommit=True) as c:
+              c.execute('CREATE DATABASE promo_benchmark')
+          PY
+      - name: Benchmark 50,000-row import, repeat and search
+        run: python scripts/benchmark.py --confirm-isolated --rows 50000 --output /tmp/benchmark.json
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: postgresql+psycopg://promo:ci-disposable-password@127.0.0.1:5432/promo_benchmark
+          DATA_DIR: /tmp/promo-benchmark-data
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-evidence
+          path: |
+            /tmp/benchmark.json
+            /tmp/promo-tests.xml
+            /tmp/promo-api.log
+            /tmp/promo-worker.log
+            frontend/playwright-report
+            frontend/test-results
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      POSTGRES_PASSWORD: 1e997db112da3641a7743fbd12c48068fbe353ba773a19777ae361ce8a10a2eee
+      PROMO_APP_PASSWORD: 474dd84c915068429e18243d5848a02a1a6f909f909e0a2d8373d19f13920bb4
+      ALLOWED_ORIGIN: http://127.0.0.1:8085
+      COOKIE_SECURE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose up -d --build --wait --wait-timeout 180
+      - run: curl --fail http://127.0.0.1:8085/health/ready && curl --fail http://127.0.0.1:8085/
+      - run: ./scripts/check-health.sh
+      - name: Backup and restore isolated Compose stack
+        run: |
+          ./scripts/backup.sh
+          archive=$(find backups -mindepth 1 -maxdepth 1 -type d | head -1)
+          PROMO_RESTORE_CONFIRMED=RESTORE_MIESZKO_PROMO ./scripts/restore.sh "$archive"
+          docker compose up -d --wait --wait-timeout 120
+          ./scripts/check-health.sh
+      - run: docker compose logs --no-color
+        if: failure()
+      - run: docker compose down -v
+        if: always()

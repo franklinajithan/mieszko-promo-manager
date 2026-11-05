@@ -1,0 +1,3 @@
+# Install under the account owning this app. Create /var/log/mieszko-promo-backup.log first.
+# Brief nightly maintenance window. Copy successful backups to a separate disk/host.
+30 3 * * * cd /opt/mieszko-promo-manager && ./scripts/backup.sh >> /var/log/mieszko-promo-backup.log 2>&1

@@ -1,0 +1,24 @@
+# Add a NEW virtual host to the existing proxy; do not replace other sites.
+# Provision a valid TLS certificate with your existing certificate manager.
+server {
+    listen 443 ssl;
+    server_name promo.your-domain.co.uk;
+    ssl_certificate /etc/letsencrypt/live/promo.your-domain.co.uk/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/promo.your-domain.co.uk/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security 'max-age=31536000' always;
+    client_max_body_size 50m;
+    location / {
+        proxy_pass http://127.0.0.1:8085;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 90s;
+        proxy_request_buffering on;
+    }
+}
+server {
+    listen 80;
+    server_name promo.your-domain.co.uk;
+    return 301 https://$host$request_uri;
+}

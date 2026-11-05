@@ -1,0 +1,8 @@
+-r requirements.txt
+pytest==9.2.0
+httpx==0.28.1
+ruff==0.17.3
+mypy==2.4.1
+types-openpyxl==3.1.5.20261017
+pypdf==6.21.4
+zxing-cpp==3.1.1
