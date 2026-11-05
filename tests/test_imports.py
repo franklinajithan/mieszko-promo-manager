@@ -142,3 +142,9 @@ def test_cancel_committed_batch_and_retry_without_duplicates(admin_client, monke
     assert finished["result"]["updated"] == 250
     assert finished["result"]["inserted"] == 251
     assert admin_client.get("/api/products").json()["total"] == 501
+
+
+def test_workbook_xml_entities_are_disabled():
+    from openpyxl.xml import DEFUSEDXML
+
+    assert DEFUSEDXML is True

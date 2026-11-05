@@ -48,6 +48,7 @@ def test_auth_and_health(client):
     r = client.post("/api/auth/login", json={"username": "admin", "password": "wrong"})
     assert r.status_code == 401
     assert "nosniff" == r.headers["x-content-type-options"]
+    assert "connect-src 'self' blob:" in r.headers["content-security-policy"]
 
 
 def test_csrf_logout_and_origin(admin_client):
