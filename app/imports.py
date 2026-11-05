@@ -5,7 +5,7 @@ import zipfile
 from fastapi import HTTPException
 from openpyxl import load_workbook
 from pydantic import ValidationError
-from sqlalchemy import false, or_, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.catalog import save_product
@@ -188,18 +188,11 @@ def commit_import(job):
                 data = ProductInput(**row)
                 try:
                     with s.begin_nested():
-                        ids = set(
-                            s.scalars(
-                                select(Product.id).where(
-                                    or_(
-                                        Product.id.in_(
-                                            select(Barcode.product_id).where(Barcode.value == data.barcode)
-                                        ),
-                                        Product.code == data.code if data.code else false(),
-                                    )
-                                )
-                            )
-                        )
+                        # Separate indexed identity lookups avoid an OR + IN-subquery
+                        # plan that can repeatedly scan a growing PostgreSQL catalogue.
+                        ids = set(s.scalars(select(Barcode.product_id).where(Barcode.value == data.barcode)))
+                        if data.code:
+                            ids.update(s.scalars(select(Product.id).where(Product.code == data.code)))
                         if len(ids) > 1:
                             raise ValueError("Identity conflict since preview; row was not changed")
                         p = s.get(Product, next(iter(ids))) if ids else None

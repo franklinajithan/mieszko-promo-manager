@@ -71,7 +71,7 @@ def product_query(q="", active="active", missing=False, brand=""):
         if value.isdigit():
             query = query.where(
                 or_(
-                    Product.id.in_(select(Barcode.product_id).where(Barcode.value == value)),
+                    Product.id == select(Barcode.product_id).where(Barcode.value == value).scalar_subquery(),
                     Product.code == value,
                 )
             )
