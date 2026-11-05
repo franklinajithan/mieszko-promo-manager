@@ -1,0 +1,55 @@
+name: Full Performance Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      rows:
+        description: Number of synthetic product rows to benchmark
+        required: true
+        default: '50000'
+        type: choice
+        options:
+          - '50000'
+          - '100000'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-benchmark
+  cancel-in-progress: false
+
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-disposable-password
+          POSTGRES_USER: promo
+          POSTGRES_DB: promo_benchmark
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U promo -d promo_benchmark" --health-interval=5s --health-timeout=5s --health-retries=15
+    env:
+      DATABASE_URL: postgresql+psycopg://promo:ci-disposable-password@127.0.0.1:5432/promo_benchmark
+      DATA_DIR: /tmp/promo-benchmark-data
+      COOKIE_SECURE: 'false'
+      ALLOWED_ORIGIN: http://127.0.0.1:8000
+      PROMO_TEST_MODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12', cache: pip}
+      - run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core poppler-utils
+      - run: pip install -r requirements-dev.txt
+      - name: Benchmark import, repeat-import and indexed search
+        run: python scripts/benchmark.py --confirm-isolated --rows ${{ inputs.rows }} --output /tmp/benchmark.json
+        env:
+          PYTHONPATH: .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-evidence
+          path: /tmp/benchmark.json
