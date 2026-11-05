@@ -25,7 +25,7 @@ def store_image(s, content: bytes, filename: str):
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
-            img = Image.open(io.BytesIO(content))
+            img: Image.Image = Image.open(io.BytesIO(content))
             if img.format not in ("JPEG", "PNG", "WEBP"):
                 raise ValueError("Unsupported image content")
             ext = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}[img.format]
@@ -42,6 +42,16 @@ def store_image(s, content: bytes, filename: str):
         raise HTTPException(400, "Invalid image; use JPG, PNG or WebP up to 24 megapixels") from None
     digest = hashlib.sha256(content).hexdigest()
     asset = s.scalar(select(Asset).where(Asset.digest == digest))
+    # Bounded print derivative keeps large PDF batches practical without discarding originals.
+    print_path = settings.data_dir / "print_images" / (digest + ".jpg")
+    if not print_path.exists():
+        rgba = img.convert("RGBA")
+        printable = Image.new("RGB", rgba.size, "white")
+        printable.paste(rgba, mask=rgba.getchannel("A"))
+        printable.thumbnail((2200, 2200), Image.Resampling.LANCZOS)
+        print_stream = io.BytesIO()
+        printable.save(print_stream, "JPEG", quality=92, optimize=True, dpi=(300, 300))
+        atomic_write(print_path, print_stream.getvalue())
     if asset:
         return asset
     stored = digest + ext

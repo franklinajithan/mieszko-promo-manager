@@ -2,9 +2,11 @@ import csv
 import json
 import zipfile
 
+from fastapi import HTTPException
 from openpyxl import load_workbook
 from pydantic import ValidationError
 from sqlalchemy import false, or_, select
+from sqlalchemy.exc import IntegrityError
 
 from app.catalog import save_product
 from app.config import settings
@@ -39,11 +41,27 @@ def workbook_rows(path):
         if len(archive.infolist()) > 2000 or sum(x.file_size for x in archive.infolist()) > 300 * 1024 * 1024:
             raise ValueError("Workbook expanded size exceeds 300 MB or 2,000 parts")
     workbook = load_workbook(path, read_only=True, data_only=False, keep_links=False)
+    cached = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     try:
         sheet = workbook["Product List"] if "Product List" in workbook.sheetnames else workbook.active
         if sheet is None:
             raise ValueError("Workbook has no worksheet")
-        rows = sheet.iter_rows(values_only=True)
+        cached_sheet = cached[sheet.title]
+
+        def resolved_rows():
+            for raw, values in zip(
+                sheet.iter_rows(values_only=True), cached_sheet.iter_rows(values_only=True), strict=True
+            ):
+                # Read stored Excel results, never evaluate formulas or external links.
+                # Uncached formulas remain text and fail identity validation.
+                yield tuple(
+                    cached_value
+                    if isinstance(value, str) and value.startswith("=") and cached_value is not None
+                    else value
+                    for value, cached_value in zip(raw, values, strict=True)
+                )
+
+        rows = resolved_rows()
         first = next(rows, ())
         columns = mapped(first)
         header = {"barcode", "name"}.issubset(columns)
@@ -61,6 +79,7 @@ def workbook_rows(path):
                 yield index, row, columns
     finally:
         workbook.close()
+        cached.close()
 
 
 def get_job(job_id):
@@ -199,11 +218,21 @@ def commit_import(job):
                         updated += 1
                     else:
                         inserted += 1
-                except Exception as exc:
+                except (HTTPException, ValueError, IntegrityError) as exc:
                     # Row savepoints isolate conflicts while preserving valid rows.
                     failed += 1
                     write_error(
-                        writer, number, data.code, data.barcode, type(exc).__name__ + ": row rejected"
+                        writer,
+                        number,
+                        data.code,
+                        data.barcode,
+                        (
+                            str(exc.detail)
+                            if isinstance(exc, HTTPException)
+                            else str(exc)
+                            if isinstance(exc, ValueError)
+                            else "Identity conflict; row was not changed"
+                        ),
                     )
                 processed += 1
                 if processed % 250 == 0:

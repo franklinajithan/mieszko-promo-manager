@@ -84,3 +84,27 @@ def test_formula_cells_rejected(admin_client):
     assert j["result"]["invalid"] == 1
     report = admin_client.get(f"/api/jobs/{j['id']}/download").text
     assert "'=HYPERLINK" in report
+
+
+def test_cached_lookup_formula_is_read_without_evaluation(admin_client):
+    import zipfile
+    from xml.etree import ElementTree as ET
+
+    content = workbook(
+        [("=VLOOKUP(B1,[2]Product!$A:$B,2,0)", "5900820005535", "Mlekpol", "EACH", "150G", "Cheese")]
+    )
+    result = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(content)) as source, zipfile.ZipFile(result, "w") as target:
+        for entry in source.infolist():
+            raw = source.read(entry.filename)
+            if entry.filename == "xl/worksheets/sheet1.xml":
+                tree = ET.fromstring(raw)
+                ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+                cell = tree.find('.//s:c[@r="A1"]', ns)
+                cell.set("t", "str")
+                cell.find("s:v", ns).text = "M001"
+                raw = ET.tostring(tree)
+            target.writestr(entry, raw)
+    job = upload(admin_client, result.getvalue())
+    assert job["result"]["valid"] == 1, job
+    assert job["result"]["sample"][0]["code"] == "M001"

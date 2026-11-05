@@ -16,7 +16,7 @@ COPY app/ ./app/
 COPY migrations/ ./migrations/
 COPY alembic.ini ./
 COPY --from=frontend /static/ ./static/
-RUN mkdir -p /data/images /data/thumbs /data/uploads /data/prints && chown -R promo:promo /data
+RUN mkdir -p /data/images /data/thumbs /data/print_images /data/uploads /data/prints && chown -R promo:promo /data
 USER promo
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers", "--no-access-log"]

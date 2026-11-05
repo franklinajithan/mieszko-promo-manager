@@ -15,5 +15,5 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-for folder in ("images", "thumbs", "uploads", "prints"):
+for folder in ("images", "thumbs", "print_images", "uploads", "prints"):
     (settings.data_dir / folder).mkdir(parents=True, exist_ok=True)

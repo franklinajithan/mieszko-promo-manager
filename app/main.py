@@ -117,7 +117,8 @@ def live():
 @app.get("/health/ready")
 def ready(s=Depends(db)):
     s.execute(text("SELECT 1"))
-    s.execute(text("SELECT version_num FROM alembic_version"))
+    if s.scalar(text("SELECT version_num FROM alembic_version")) != "001_foundation":
+        raise HTTPException(503, "Database migration is required")
     return {"status": "ok"}
 
 
@@ -625,6 +626,10 @@ def snapshot(s, ids, config):
             if asset or p.image
             else None
         )
+        if asset:
+            derivative = settings.data_dir / "print_images" / (asset.digest + ".jpg")
+            if derivative.is_file():
+                image_file = str(derivative.resolve())
         result.append(
             {
                 "promotion_id": pr.id,
