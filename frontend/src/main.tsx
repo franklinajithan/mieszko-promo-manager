@@ -369,6 +369,9 @@ function App() {
             <button
               key={n.name}
               className={view === n.name ? "active" : ""}
+              aria-label={n.name}
+              aria-current={view === n.name ? "page" : undefined}
+              title={n.name}
               onClick={() => {
                 setView(n.name);
                 setNotice("");
