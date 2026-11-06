@@ -465,7 +465,7 @@ function App() {
             </div>
           )}
           {view === "Dashboard" && (
-            <Dashboard report={report} navigate={setView} />
+            <Dashboard report={report} navigate={setView} admin={user.role === "admin"} />
           )}
           {view === "Products" && (
             <Products
@@ -548,9 +548,11 @@ type Common = {
 function Dashboard({
   report,
   navigate,
+  admin,
 }: {
   report: Common["report"];
   navigate: (v: string) => void;
+  admin: boolean;
 }) {
   const [stats, setStats] = useState<{
     products: number;
@@ -623,7 +625,7 @@ function Dashboard({
       <section className="panel quick-actions">
         <h2>Quick actions</h2>
         <div className="quick-actions-grid">
-          <button onClick={() => navigate("Excel Imports")}><FileSpreadsheet size={24}/><span><b>Import Excel</b><small>Products & updates</small></span></button>
+          {admin && <button onClick={() => navigate("Excel Imports")}><FileSpreadsheet size={24}/><span><b>Import Excel</b><small>Products & updates</small></span></button>}
           <button onClick={() => navigate("Promotions")}><Tags size={24}/><span><b>Create promotion</b><small>Products & dates</small></span></button>
           <button onClick={() => navigate("A4 Label Designer")}><Printer size={24}/><span><b>Generate labels</b><small>Single or bulk</small></span></button>
           <button onClick={() => navigate("Print Centre")}><History size={24}/><span><b>Print history</b><small>Download & reprint</small></span></button>
