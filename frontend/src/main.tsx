@@ -563,106 +563,75 @@ function Dashboard({
   }, []);
   if (!stats) return <p>Loading overview…</p>;
   const cards = [
-    ["Total products", stats.products, Package, "Products"],
-    ["Products with images", stats.with_images, Images, "Image Library"],
-    ["Missing images", stats.missing_images, UploadCloud, "Products"],
-    ["Active promotions", stats.active_promotions, Tags, "Promotions"],
-  ] as const;
+    { title: "Total Products", value: stats.products, icon: Package, target: "Products", tone: "violet", note: "Catalogue records" },
+    { title: "Products with Images", value: stats.with_images, icon: Images, target: "Image Library", tone: "green", note: "Ready for labels" },
+    { title: "Missing Images", value: stats.missing_images, icon: UploadCloud, target: "Products", tone: "amber", note: "Need product photos" },
+    { title: "Active Promotions", value: stats.active_promotions, icon: Tags, target: "Promotions", tone: "purple", note: "Current campaigns" },
+    { title: "Expired Promotions", value: stats.expired_promotions, icon: History, target: "Promotions", tone: "red", note: "Review and archive" },
+    { title: "Failed Jobs", value: stats.failed_jobs, icon: Printer, target: "Print Centre", tone: "blue", note: "Check job history" },
+  ];
   return (
     <>
-      <div className="stats">
-        {cards.map(([name, value, Icon, target]) => (
-          <button className="stat" key={name} onClick={() => navigate(target)}>
-            <span>
-              {name}
-              <Icon size={19} />
-            </span>
+      <div className="stats stats-six">
+        {cards.map(({ title, value, icon: Icon, target, tone, note }) => (
+          <button className={"stat stat-" + tone} key={title} onClick={() => navigate(target)}>
+            <span className="stat-top"><span className="stat-icon"><Icon size={24} /></span><span>{title}</span></span>
             <strong>{value.toLocaleString()}</strong>
-            <small>
-              View details <ArrowUpRight size={13} />
-            </small>
+            <small>{note} <ArrowUpRight size={13} /></small>
           </button>
         ))}
       </div>
-      <div className="dashboard-grid">
-        <section className="panel promo-banner">
-          <span className="eyebrow">FROM CATALOGUE TO SHOP FLOOR</span>
-          <h2>
-            Your next promotion
-            <br />
-            starts here.
-          </h2>
-          <p>
-            Select products, set your prices
-            <br />
-            and create professional A4 labels.
-          </p>
-          <button onClick={() => navigate("Products")}>
-            Browse catalogue <ArrowUpRight size={16} />
-          </button>
-          <div className="banner-price">
-            £<strong>1.99</strong>
-            <span>PROMOTION</span>
-          </div>
-        </section>
-        <section className="panel">
+      <div className="dashboard-grid dashboard-feature-grid">
+        <section className="panel dashboard-feature">
           <div className="section-title">
-            <h2>Needs attention</h2>
-            <span className="subtle-icon">
-              <CheckCircle2 size={18} />
-            </span>
+            <h2><Package size={20} /> Product management</h2>
+            <button onClick={() => navigate("Products")}>Browse products <ArrowUpRight size={16} /></button>
           </div>
-          <div className="attention">
-            <span>Products awaiting images</span>
-            <b>{stats.missing_images.toLocaleString()}</b>
+          <p className="muted">Search your catalogue by barcode, internal code, name or brand. Manage product images and select items for promotions.</p>
+          <div className="dashboard-product-visual">
+            <div className="product-art"><Package size={74} strokeWidth={1.3}/><span>PRODUCT CATALOGUE</span></div>
+            <div className="product-art-copy">
+              <span className="eyebrow">CENTRALISED CATALOGUE</span>
+              <strong>{stats.products.toLocaleString()} products</strong>
+              <p>Fast lookup · Multiple barcodes · Product images</p>
+              <button className="primary" onClick={() => navigate("Products")}><Search size={16}/> Search products</button>
+            </div>
           </div>
-          <div className="attention">
-            <span>Expired campaigns</span>
-            <b>{stats.expired_promotions}</b>
+          <div className="dashboard-mini-heading"><Tags size={17}/> Promotion management</div>
+          <div className="dashboard-mini-row"><span>Active campaigns</span><b>{stats.active_promotions}</b><button onClick={() => navigate("Promotions")}>Manage promotions</button></div>
+        </section>
+        <section className="panel dashboard-feature">
+          <div className="section-title">
+            <h2><Printer size={20} /> A4 label preview</h2>
+            <button onClick={() => navigate("A4 Label Designer")}>Label design settings <ArrowUpRight size={16}/></button>
           </div>
-          <div className="attention">
-            <span>Failed / partial jobs</span>
-            <b>{stats.failed_jobs}</b>
+          <div className="dashboard-label-demo" aria-label="Illustrative A4 promotional label design">
+            <div className="demo-label-head"><div><small>POLSKIE SUPERMARKETY</small><strong>MIESZKO</strong></div><div className="demo-date">Promotion Period<br/><b>Set in campaign</b></div></div>
+            <div className="demo-label-middle"><div className="demo-product-placeholder"><Package size={95} strokeWidth={1.2}/><span>Your product image</span></div><div className="demo-price"><span>£</span><strong>1.00</strong><b>EACH</b></div></div>
+            <div className="demo-label-foot"><div className="demo-barcode">|||| ||| |||| || |||||<small>Product barcode</small></div><strong>YOUR PRODUCT DESCRIPTION</strong></div>
           </div>
-          <p className="muted small">
-            Review job reports before retrying. Valid import batches are
-            preserved.
-          </p>
+          <div className="dashboard-label-actions">
+            <span>A4 · Portrait / Landscape</span>
+            <button className="primary" onClick={() => navigate("A4 Label Designer")}><ScanLine size={16}/> Open label designer</button>
+          </div>
+          <p className="muted small">Illustrative preview. Actual labels are generated from your saved campaigns and template settings.</p>
         </section>
       </div>
-      <section className="panel">
-        <div className="section-title">
-          <h2>Recent activity</h2>
-          <span className="muted small">Imports & print jobs</span>
+      <section className="panel quick-actions">
+        <h2>Quick actions</h2>
+        <div className="quick-actions-grid">
+          <button onClick={() => navigate("Excel Imports")}><FileSpreadsheet size={24}/><span><b>Import Excel</b><small>Products & updates</small></span></button>
+          <button onClick={() => navigate("Promotions")}><Tags size={24}/><span><b>Create promotion</b><small>Products & dates</small></span></button>
+          <button onClick={() => navigate("A4 Label Designer")}><Printer size={24}/><span><b>Generate labels</b><small>Single or bulk</small></span></button>
+          <button onClick={() => navigate("Print Centre")}><History size={24}/><span><b>Print history</b><small>Download & reprint</small></span></button>
         </div>
+      </section>
+      <section className="panel">
+        <div className="section-title"><h2>Recent activity</h2><span className="muted small">Imports & print jobs</span></div>
         {stats.recent_jobs.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Job</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Progress</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.recent_jobs.map((j) => (
-                <tr key={j.id}>
-                  <td>#{j.id}</td>
-                  <td>{j.kind}</td>
-                  <td>
-                    <Badge value={j.status} />
-                  </td>
-                  <td>
-                    {j.progress} / {j.total || "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <Empty text="Your import and print activity will appear here." />
-        )}
+          <div className="table-scroll"><table><thead><tr><th>Job</th><th>Type</th><th>Status</th><th>Progress</th></tr></thead>
+            <tbody>{stats.recent_jobs.map((j) => <tr key={j.id}><td>#{j.id}</td><td>{j.kind}</td><td><Badge value={j.status}/></td><td>{j.progress} / {j.total || "—"}</td></tr>)}</tbody></table></div>
+        ) : <Empty text="Your import and print activity will appear here." />}
       </section>
     </>
   );
