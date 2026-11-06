@@ -563,10 +563,29 @@ function Dashboard({
     failed_jobs: number;
     recent_jobs: Job[];
   } | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [reload, setReload] = useState(0);
   useEffect(() => {
-    api<typeof stats>("/stats").then(setStats).catch(report);
-  }, []);
-  if (!stats) return <p>Loading overview…</p>;
+    let active = true;
+    setLoadError("");
+    api<NonNullable<typeof stats>>("/stats")
+      .then((result) => { if (active) setStats(result); })
+      .catch((error: unknown) => {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : "Unable to load dashboard";
+        setLoadError(message);
+        report(error);
+      });
+    return () => { active = false; };
+  }, [reload]);
+  if (!stats && loadError) return (
+    <section className="panel dashboard-error" role="alert">
+      <h2>Dashboard data unavailable</h2>
+      <p>{loadError}</p>
+      <button className="primary" onClick={() => setReload((value) => value + 1)}>Retry loading dashboard</button>
+    </section>
+  );
+  if (!stats) return <p role="status">Loading overview…</p>;
   const cards = [
     { title: "Total Products", value: stats.products, icon: Package, target: "Products", tone: "violet", note: "Catalogue records" },
     { title: "Products with Images", value: stats.with_images, icon: Images, target: "Image Library", tone: "green", note: "Ready for labels" },
