@@ -1147,3 +1147,42 @@ input[type="checkbox"],.controls input[type="range"],progress{accent-color:#743d
 @media(max-width:520px){.shell aside{width:60px}.workspace{margin-left:60px}.shell aside nav button{min-width:44px}.stats-six{gap:8px}.stats-six .stat-top{font-size:10px}.dashboard-feature .section-title{align-items:flex-start}.dashboard-feature .section-title button{max-width:100%;white-space:normal}.quick-actions-grid button{min-height:66px}.dashboard-mini-row{flex-wrap:wrap}.dashboard-mini-row button{margin-left:0}.dashboard-label-demo .demo-label-middle{gap:3px}.dashboard-label-demo .demo-product-placeholder svg{width:65px}.dashboard-label-demo .demo-price{width:105px;height:105px}.dashboard-label-demo .demo-price strong{font-size:30px}.dashboard-label-demo .demo-price b{font-size:10px}}
 @media(prefers-reduced-motion:no-preference){.stats-six .stat,.quick-actions-grid button{transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+
+/* Shared professional workspace treatment for catalogue, campaigns, jobs and print. */
+.workspace .panel:not(.dashboard-feature){border-color:#e3dff0}
+.workspace .toolbar{align-items:center;gap:12px}
+.workspace .search{border-color:#dcd5ed;background:#fff;box-shadow:0 1px 3px #1b12340a}
+.workspace .search:focus-within{border-color:#7842bc;box-shadow:0 0 0 3px #7842bc19}
+.workspace .search button{background:#f6f0ff;color:#6434ac;border-color:#e6d9fa}
+.workspace .filters{background:#faf9ff;border:1px solid #ebe6f6;border-radius:10px;padding:12px}
+.workspace .filters select{background:white}
+.workspace .table-scroll{border:1px solid #eeeaf6;border-radius:10px}
+.workspace table th{background:#f7f5fd;color:#59546f;font-weight:750;letter-spacing:.2px}
+.workspace table td{color:#343047}
+.workspace table tbody tr:hover{background:#fbf9ff}
+.workspace .product-cell img{background:#f5f2fb;border:1px solid #ece6f5;border-radius:8px}
+.workspace .product-placeholder{background:#f5f2fb;color:#9066c4}
+.workspace .badge.active,.workspace .badge.completed{background:#e4f8ed;color:#137e4c}
+.workspace .badge.failed,.workspace .badge.partial{background:#ffe9e8;color:#b62d35}
+.workspace .pager{border-top:1px solid #f0edf7}
+.workspace .pager button{border-color:#dfd5ed}
+.workspace .drop-zone{background:linear-gradient(135deg,#fcfaff,#f4f0ff);border:2px dashed #bca7df;border-radius:14px}
+.workspace .drop-zone>svg{color:#7540bc}
+.workspace .drop-zone h2{color:#33234f}
+.workspace .image-card{border-radius:12px;border-color:#e9e1f4;box-shadow:0 2px 8px #22133c0a}
+.workspace .image-card:hover{border-color:#bca5df}
+.workspace .image-card img{background:#faf9ff;border-radius:9px}
+.workspace .controls{background:#fff}
+.workspace .controls h2{color:#33214f}
+.workspace .preview{background:#eeeaf5;border:1px solid #dcd4e9}
+.workspace .setting{border-bottom-color:#ece7f4}
+.workspace .modal{border:1px solid #e3d9f0}
+.workspace .modal .section-title h2{color:#32214b}
+.workspace .modal-actions{border-top-color:#e9e3f2}
+.workspace .notice{background:#fff8e8;border-color:#f2dfb0}
+.workspace .form-grid label{color:#48405d}
+.workspace .form-grid input:focus,.workspace .form-grid select:focus{border-color:#8956cb}
+.workspace .actions button:hover{border-color:#bca4e0;color:#6335a6}
+.workspace .file-button{border-radius:9px}
+@media(max-width:800px){.workspace .toolbar{flex-wrap:wrap}.workspace .toolbar>.primary{width:100%}.workspace .filters{gap:8px}.workspace .filters select{max-width:100%}.workspace .pager{flex-wrap:wrap}.workspace .pager span{width:100%}.workspace .modal-actions{flex-wrap:wrap}.workspace .modal-actions button,.workspace .modal-actions .button{flex:1;min-width:140px}}
